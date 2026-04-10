@@ -37,7 +37,8 @@ dotnet run</code></pre>
 
 <h2>💻 Rodando o Frontend</h2>
 
-<pre><code id="frontend-commands">cd src/ui/TicketPrime.Web
+<pre><code id="frontend-commands">cd ui
+cd TicketPrime.Web
 dotnet restore
 dotnet build
 dotnet run</code></pre>
