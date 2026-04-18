@@ -23,9 +23,4 @@ public class UsuarioService
         await _repository.CriarUsuario(novoUsuario);
         return novoUsuario;
     }
-    public async Task<Usuario?> ValidarLogin(string email, string senha)
-{
-    // Aqui chamamos o método que acabamos de criar
-    return await _repository.ObterPorLogin(email, senha);
-}
 }

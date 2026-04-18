@@ -1,0 +1,99 @@
+@page "/login"
+@using System.Net.Http.Json
+@rendermode InteractiveServer
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject SessionService Session
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-4">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white text-center">
+                    <h4 class="mb-0">🎟️ TicketPrime</h4>
+                    <small>Faça seu login</small>
+                </div>
+                <div class="card-body">
+                    @if (!string.IsNullOrEmpty(erro))
+                    {
+                        <div class="alert alert-danger">@erro</div>
+                    }
+
+                    <div class="mb-3">
+                        <label class="form-label">CPF</label>
+                        <input type="text" class="form-control" @bind="cpf" placeholder="Somente números" maxlength="11" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Senha</label>
+                        <input type="password" class="form-control" @bind="senha" />
+                    </div>
+
+                    <button class="btn btn-primary w-100" @onclick="HandleLogin" disabled="@carregando">
+                        @if (carregando)
+                        {
+                            <span class="spinner-border spinner-border-sm"></span>
+                            <span> Entrando...</span>
+                        }
+                        else
+                        {
+                            <span>Entrar</span>
+                        }
+                    </button>
+
+                    <hr />
+                    <div class="text-center">
+                        <small>Não tem conta? <a href="/cadastro-user">Cadastre-se</a></small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string cpf = "";
+    private string senha = "";
+    private string erro = "";
+    private bool carregando = false;
+
+    private async Task HandleLogin()
+{
+    carregando = true;
+    erro = "";
+
+    try
+    {
+        var response = await Http.PostAsJsonAsync("api/auth/login", new { Cpf = cpf, Senha = senha });
+
+        if (response.IsSuccessStatusCode)
+        {
+            var resultado = await response.Content.ReadFromJsonAsync<LoginResponse>();
+            if (resultado != null)
+            {
+                Session.Logar(resultado.Nome, resultado.Perfil, resultado.Token);
+                Navigation.NavigateTo("/");
+                StateHasChanged();
+            }
+        }
+        else
+        {
+            erro = "CPF ou senha inválidos.";
+        }
+    }
+    catch (Exception ex)
+    {
+        erro = "Erro de conexão: " + ex.Message;
+    }
+    finally
+    {
+        carregando = false;
+    }
+}
+    public class LoginResponse
+    {
+        public string Nome { get; set; } = "";
+        public string Perfil { get; set; } = "";
+        public string Token { get; set; } = "";
+    }
+}

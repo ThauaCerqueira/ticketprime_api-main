@@ -1,8 +1,10 @@
 @page "/cupons"
-@using src.Models 
+@using src.Models
+@using TicketPrime.Web.Services
 @rendermode InteractiveServer
 @using src.Service
 @inject CupomService CupomService
+@inject SessionService Session
 @inject IJSRuntime JS
 
 <PageTitle>Gerenciar Cupons</PageTitle>
@@ -10,9 +12,12 @@
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2>Cupons Cadastrados</h2>
-        <a href="/cupons/cadastrar" class="btn btn-primary">
-            <i class="bi bi-plus-circle"></i> Novo Cupom
-        </a>
+        @if (Session.EhAdmin)
+        {
+            <a href="/cupons/cadastrar" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Novo Cupom
+            </a>
+        }
     </div>
 
     @if (cupons == null)
@@ -35,7 +40,10 @@
                         <th>Código</th>
                         <th>Desconto</th>
                         <th>Valor Mínimo</th>
-                        <th class="text-center">Ações</th>
+                        @if (Session.EhAdmin)
+                        {
+                            <th class="text-center">Ações</th>
+                        }
                     </tr>
                 </thead>
                 <tbody>
@@ -45,12 +53,15 @@
                             <td class="align-middle fw-bold">@cupom.Codigo</td>
                             <td class="align-middle">@cupom.PorcentagemDesconto%</td>
                             <td class="align-middle">R$ @cupom.valorMinimoregra</td>
-                            <td class="text-center">
-                                <button class="btn btn-danger btn-sm" 
-                                        @onclick="() => ConfirmarExclusao(cupom.Codigo)">
-                                    <i class="bi bi-trash"></i> Excluir
-                                </button>
-                            </td>
+                            @if (Session.EhAdmin)
+                            {
+                                <td class="text-center">
+                                    <button class="btn btn-danger btn-sm"
+                                            @onclick="() => ConfirmarExclusao(cupom.Codigo)">
+                                        <i class="bi bi-trash"></i> Excluir
+                                    </button>
+                                </td>
+                            }
                         </tr>
                     }
                 </tbody>
@@ -83,11 +94,8 @@
     private async Task ConfirmarExclusao(string codigo)
     {
         var confirmado = await JS.InvokeAsync<bool>("confirm", $"Tem certeza que deseja excluir o cupom {codigo}?");
-
         if (confirmado)
-        {
             await Deletar(codigo);
-        }
     }
 
     private async Task Deletar(string codigo)
@@ -95,11 +103,10 @@
         try
         {
             var removido = await CupomService.DeletarAsync(codigo);
-
             if (removido)
             {
                 cupons?.RemoveAll(c => c.Codigo == codigo);
-                StateHasChanged(); 
+                StateHasChanged();
             }
             else
             {

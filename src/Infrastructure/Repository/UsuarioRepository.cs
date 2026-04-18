@@ -1,51 +1,11 @@
-using Dapper;
 using src.Models;
-using src.Infrastructure.IRepository;
-
-namespace src.Infrastructure;
-
-public class UsuarioRepository : IUsuarioRepository
+ 
+namespace src.Infrastructure.IRepository;
+ 
+public interface IUsuarioRepository
 {
-    private readonly DbConnectionFactory _connectionFactory;
-
-    public UsuarioRepository(DbConnectionFactory connectionFactory)
-    {
-        _connectionFactory = connectionFactory;
-    }
-
-    public async virtual Task<Usuario?> ObterPorCpf(string cpf)
-    {
-        using var connection = _connectionFactory.CreateConnection();
-        var sql = "SELECT * FROM Usuarios WHERE Cpf = @Cpf";
-
-        return await connection.QueryFirstOrDefaultAsync<Usuario>(sql, new { Cpf = cpf });
-    }
-
-    public async virtual Task CriarUsuario(Usuario usuario)
-    {
-        using var connection = _connectionFactory.CreateConnection();
-
-        var sql = @"INSERT INTO Usuarios (Cpf, Nome, Email, Senha)
-                    VALUES (@Cpf, @Nome, @Email, @Senha)";
-
-        await connection.ExecuteAsync(sql, usuario);
-    }
-    public async virtual Task<Usuario?> ObterPorLogin(string email, string senha)
-{
-    using var connection = _connectionFactory.CreateConnection();
-    
-    // SQL manual conforme critério do professor
-    var sql = "SELECT * FROM Usuarios WHERE Email = @Email AND Senha = @Senha";
-
-    // Passagem de parâmetros com @ para segurança
-    return await connection.QueryFirstOrDefaultAsync<Usuario>(sql, new { Email = email, Senha = senha });
-}
-
-    public async virtual Task<IEnumerable<Usuario>> ListarUsuarios()
-    {
-        using var connection = _connectionFactory.CreateConnection();
-        var sql = "SELECT * FROM Usuarios";
-
-        return await connection.QueryAsync<Usuario>(sql);
-    }
+    Task<Usuario?> ObterPorCpf(string cpf);
+    Task<Usuario?> ObterPorCpfESenha(string cpf, string senha);
+    Task CriarUsuario(Usuario usuario);
+    Task<IEnumerable<Usuario>> ListarUsuarios();
 }

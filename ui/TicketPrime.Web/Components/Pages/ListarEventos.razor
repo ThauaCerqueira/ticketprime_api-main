@@ -1,6 +1,8 @@
 @page "/eventos"
 @using src.Models
+@using TicketPrime.Web.Services
 @inject HttpClient Http
+@inject SessionService Session
 @rendermode InteractiveServer
 
 <PageTitle>Eventos - TicketPrime</PageTitle>
@@ -8,10 +10,10 @@
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h3>Lista de Eventos</h3>
-        <div>
-            <a href="/vitrine" class="btn btn-outline-primary me-2">Ver Disponíveis</a>
+        @if (Session.EhAdmin)
+        {
             <a href="/eventos/novo" class="btn btn-success">Novo Evento</a>
-        </div>
+        }
     </div>
 
     @if (eventos == null)
@@ -57,12 +59,11 @@
 
 @code {
     private List<Evento>? eventos;
-    
+
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            // Busca todos os eventos para a listagem principal
             eventos = await Http.GetFromJsonAsync<List<Evento>>("api/eventos");
         }
         catch (Exception ex)

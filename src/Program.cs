@@ -1,20 +1,23 @@
-using src.Infrastructure;
-using src.Infrastructure.IRepository;
-using src.Infrastructure.Repository;
-using src.Service;
-using src.Models;
 using src.Repositories;
+using src.Models;
 using src.DTOs;
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using src.Infrastructure;
+using src.Infrastructure.Repository;
+using src.Infrastructure.IRepository;
+using src.Service;
 
-namespace TicketPrime.Api 
+namespace TicketPrime.Api
 {
-    public class Program 
+    public class Program
     {
-        public static void Main(string[] args) 
+        public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
+            var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
                 ?? "Server=localhost;Database=TicketPrime;Integrated Security=True;TrustServerCertificate=True;";
 
             builder.Services.AddCors(options =>
@@ -27,57 +30,80 @@ namespace TicketPrime.Api
                 });
             });
 
-            builder.Services.AddControllers(); 
+            var jwtKey = builder.Configuration["Jwt:Key"] ?? "TicketPrimeChaveSecreta2024SuperSegura!";
+            builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddJwtBearer(options =>
+                {
+                    options.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateIssuer = true,
+                        ValidateAudience = true,
+                        ValidateLifetime = true,
+                        ValidateIssuerSigningKey = true,
+                        ValidIssuer = "TicketPrime",
+                        ValidAudience = "TicketPrime",
+                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+                    };
+                });
+
+            builder.Services.AddAuthorization();
             builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen(); 
+            builder.Services.AddSwaggerGen();
 
             builder.Services.AddSingleton(new DbConnectionFactory(connectionString));
-
             builder.Services.AddScoped<IUsuarioRepository, UsuarioRepository>();
             builder.Services.AddScoped<ICupomRepository, CupomRepository>();
             builder.Services.AddScoped<IEventoRepository, EventoRepository>();
-
             builder.Services.AddScoped<UsuarioService>();
             builder.Services.AddScoped<CupomService>();
             builder.Services.AddScoped<EventoService>();
+            builder.Services.AddScoped<AuthService>();
 
             var app = builder.Build();
-
 
             if (app.Environment.IsDevelopment())
             {
                 app.UseSwagger();
                 app.UseSwaggerUI();
-            } 
-            
-            app.UseCors("AllowAll"); 
+            }
+
+            app.UseCors("AllowAll");
+            app.UseAuthentication();
             app.UseAuthorization();
 
-            app.MapControllers();
-
+            // POST /api/eventos — Cadastra um novo evento (somente ADMIN)
             app.MapPost("/api/eventos", async (CriarEventoDTO dto, EventoService service) =>
             {
-                var resultado = await service.CriarNovoEvento(dto);
-                if (resultado == null) return Results.BadRequest("Erro ao criar evento.");
-                
-                return Results.Created($"/api/eventos/{resultado.Id}", resultado);
-            });
+                try
+                {
+                    var resultado = await service.CriarNovoEvento(dto);
+                    if (resultado == null)
+                        return Results.BadRequest("Erro ao criar evento.");
 
-            app.MapGet("/minimal/eventos", async (EventoService service) =>
+                    return Results.Created($"/api/eventos/{resultado.Id}", resultado);
+                }
+                catch (Exception ex)
+                {
+                    return Results.BadRequest(new { mensagem = ex.Message });
+                }
+            }).RequireAuthorization(policy => policy.RequireRole("ADMIN"));
+
+            // GET /api/eventos — Lista os eventos disponíveis
+            app.MapGet("/api/eventos", async (EventoService service) =>
             {
                 var eventos = await service.ListarEventos();
                 return Results.Ok(eventos);
             });
 
+            // POST /api/cupons — Cadastra um novo cupom (somente ADMIN)
             app.MapPost("/api/cupons", async (CriarCupomDTO dto, CupomService service) =>
             {
-                try 
+                try
                 {
                     var sucesso = await service.CriarAsync(dto);
                     if (sucesso)
-                    {
                         return Results.Created($"/api/cupons/{dto.Codigo}", dto);
-                    }
+
                     return Results.BadRequest("Não foi possível criar o cupom.");
                 }
                 catch (ArgumentException ex)
@@ -88,11 +114,12 @@ namespace TicketPrime.Api
                 {
                     return Results.Conflict(new { mensagem = ex.Message });
                 }
-            });
+            }).RequireAuthorization(policy => policy.RequireRole("ADMIN"));
 
+            // POST /api/usuarios — Cadastra um novo usuário
             app.MapPost("/api/usuarios", async (Usuario usuario, UsuarioService service) =>
             {
-                try 
+                try
                 {
                     var resultado = await service.CadastrarUsuario(usuario);
                     return Results.Created($"/api/usuarios/{resultado.Cpf}", resultado);
@@ -103,18 +130,15 @@ namespace TicketPrime.Api
                 }
             });
 
-            app.MapPost("/api/usuarios/login", async (src.DTOs.LoginRequestDTO login, UsuarioService service) =>
-{
-    // Chama o serviço que você criou para validar no banco via Dapper
-    var usuario = await service.ValidarLogin(login.Email, login.Senha);
+            // POST /api/auth/login — Login
+            app.MapPost("/api/auth/login", async (LoginDTO dto, AuthService service) =>
+            {
+                var resultado = await service.LoginAsync(dto);
+                if (resultado == null)
+                    return Results.Unauthorized();
 
-    if (usuario == null)
-    {
-        return Results.Unauthorized(); // Retorna 401 se não encontrar
-    }
-
-    return Results.Ok(usuario); // Retorna 200 se os dados estiverem certos
-});
+                return Results.Ok(resultado);
+            });
 
             app.Run();
         }
