@@ -8,7 +8,7 @@ using src.Infrastructure;
 using src.Infrastructure.Repository;
 using src.Infrastructure.IRepository;
 using src.Service;
-
+ 
 namespace TicketPrime.Api
 {
     public class Program
@@ -16,10 +16,10 @@ namespace TicketPrime.Api
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
-
+ 
             var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
                 ?? "Server=localhost;Database=TicketPrime;Integrated Security=True;TrustServerCertificate=True;";
-
+ 
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("AllowAll", policy =>
@@ -29,7 +29,7 @@ namespace TicketPrime.Api
                           .AllowAnyHeader();
                 });
             });
-
+ 
             var jwtKey = builder.Configuration["Jwt:Key"] ?? "TicketPrimeChaveSecreta2024SuperSegura!";
             builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 .AddJwtBearer(options =>
@@ -45,32 +45,34 @@ namespace TicketPrime.Api
                         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
                     };
                 });
-
+ 
             builder.Services.AddAuthorization();
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
-
+ 
             builder.Services.AddSingleton(new DbConnectionFactory(connectionString));
             builder.Services.AddScoped<IUsuarioRepository, UsuarioRepository>();
             builder.Services.AddScoped<ICupomRepository, CupomRepository>();
             builder.Services.AddScoped<IEventoRepository, EventoRepository>();
+            builder.Services.AddScoped<IReservaRepository, ReservaRepository>();
             builder.Services.AddScoped<UsuarioService>();
             builder.Services.AddScoped<CupomService>();
             builder.Services.AddScoped<EventoService>();
             builder.Services.AddScoped<AuthService>();
-
+            builder.Services.AddScoped<ReservaService>();
+ 
             var app = builder.Build();
-
+ 
             if (app.Environment.IsDevelopment())
             {
                 app.UseSwagger();
                 app.UseSwaggerUI();
             }
-
+ 
             app.UseCors("AllowAll");
             app.UseAuthentication();
             app.UseAuthorization();
-
+ 
             // POST /api/eventos — Cadastra um novo evento (somente ADMIN)
             app.MapPost("/api/eventos", async (CriarEventoDTO dto, EventoService service) =>
             {
@@ -79,7 +81,7 @@ namespace TicketPrime.Api
                     var resultado = await service.CriarNovoEvento(dto);
                     if (resultado == null)
                         return Results.BadRequest("Erro ao criar evento.");
-
+ 
                     return Results.Created($"/api/eventos/{resultado.Id}", resultado);
                 }
                 catch (Exception ex)
@@ -87,14 +89,14 @@ namespace TicketPrime.Api
                     return Results.BadRequest(new { mensagem = ex.Message });
                 }
             }).RequireAuthorization(policy => policy.RequireRole("ADMIN"));
-
-            // GET /api/eventos — Lista os eventos disponíveis
+ 
+            // GET /api/eventos — Lista os eventos
             app.MapGet("/api/eventos", async (EventoService service) =>
             {
                 var eventos = await service.ListarEventos();
                 return Results.Ok(eventos);
             });
-
+ 
             // POST /api/cupons — Cadastra um novo cupom (somente ADMIN)
             app.MapPost("/api/cupons", async (CriarCupomDTO dto, CupomService service) =>
             {
@@ -103,7 +105,7 @@ namespace TicketPrime.Api
                     var sucesso = await service.CriarAsync(dto);
                     if (sucesso)
                         return Results.Created($"/api/cupons/{dto.Codigo}", dto);
-
+ 
                     return Results.BadRequest("Não foi possível criar o cupom.");
                 }
                 catch (ArgumentException ex)
@@ -115,7 +117,7 @@ namespace TicketPrime.Api
                     return Results.Conflict(new { mensagem = ex.Message });
                 }
             }).RequireAuthorization(policy => policy.RequireRole("ADMIN"));
-
+ 
             // POST /api/usuarios — Cadastra um novo usuário
             app.MapPost("/api/usuarios", async (Usuario usuario, UsuarioService service) =>
             {
@@ -129,18 +131,43 @@ namespace TicketPrime.Api
                     return Results.BadRequest(new { mensagem = ex.Message });
                 }
             });
-
+ 
             // POST /api/auth/login — Login
             app.MapPost("/api/auth/login", async (LoginDTO dto, AuthService service) =>
             {
                 var resultado = await service.LoginAsync(dto);
                 if (resultado == null)
                     return Results.Unauthorized();
-
+ 
                 return Results.Ok(resultado);
             });
-
+ 
+            // POST /api/reservas — Comprar ingresso (usuario logado)
+            app.MapPost("/api/reservas", async (ComprarIngressoDTO dto, ReservaService service, HttpContext context) =>
+            {
+                try
+                {
+                    var cpf = context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+ 
+                    if (string.IsNullOrEmpty(cpf))
+                        return Results.Unauthorized();
+ 
+                    var reserva = await service.ComprarIngressoAsync(cpf, dto.EventoId);
+                    return Results.Created($"/api/reservas/{reserva.Id}", new
+                    {
+                        mensagem = "Ingresso comprado com sucesso!",
+                        reservaId = reserva.Id,
+                        eventoId = reserva.EventoId
+                    });
+                }
+                catch (InvalidOperationException ex)
+                {
+                    return Results.BadRequest(new { mensagem = ex.Message });
+                }
+            }).RequireAuthorization();
+ 
             app.Run();
         }
     }
 }
+ 
