@@ -1,60 +1,47 @@
 using Dapper;
 using src.Models;
 using src.Infrastructure.IRepository;
- 
+
 namespace src.Infrastructure.Repository;
- 
-public class EventoRepository : IEventoRepository
+
+public class ReservaRepository : IReservaRepository
 {
     private readonly DbConnectionFactory _connectionFactory;
- 
-    public EventoRepository(DbConnectionFactory connectionFactory)
+
+    public ReservaRepository(DbConnectionFactory connectionFactory)
     {
         _connectionFactory = connectionFactory;
     }
- 
-    public async Task AdicionarAsync(Evento evento)
+
+    public async Task<Reserva> CriarAsync(Reserva reserva)
     {
-        const string sql = @"
-            INSERT INTO Eventos (Nome, CapacidadeTotal, DataEvento, PrecoPadrao)
-            VALUES (@Nome, @CapacidadeTotal, @DataEvento, @PrecoPadrao)";
- 
         using var connection = _connectionFactory.CreateConnection();
-        await connection.ExecuteAsync(sql, evento);
+        var sql = @"INSERT INTO Reservas (UsuarioCpf, EventoId, DataCompra)
+                    VALUES (@UsuarioCpf, @EventoId, GETDATE());
+                    SELECT CAST(SCOPE_IDENTITY() AS INT)";
+        var id = await connection.QuerySingleAsync<int>(sql, reserva);
+        reserva.Id = id;
+        return reserva;
     }
- 
-    public async Task<IEnumerable<Evento>> ObterTodosAsync()
+
+    public async Task<IEnumerable<ReservaDetalhadaDTO>> ListarPorUsuarioAsync(string cpf)
     {
-        using var conn = _connectionFactory.CreateConnection();
-        string sql = "SELECT * FROM Eventos ORDER BY DataEvento ASC";
-        return await conn.QueryAsync<Evento>(sql);
+        using var connection = _connectionFactory.CreateConnection();
+        var sql = @"SELECT r.Id, r.UsuarioCpf, r.EventoId, r.DataCompra,
+                           e.Nome, e.DataEvento, e.PrecoPadrao
+                    FROM Reservas r
+                    INNER JOIN Eventos e ON e.Id = r.EventoId
+                    WHERE r.UsuarioCpf = @Cpf
+                    ORDER BY r.DataCompra DESC";
+        return await connection.QueryAsync<ReservaDetalhadaDTO>(sql, new { Cpf = cpf });
     }
- 
-    public async Task<IEnumerable<Evento>> ObterDisponiveisAsync()
+
+    public async Task<bool> CancelarAsync(int reservaId, string usuarioCpf)
     {
-        using var conn = _connectionFactory.CreateConnection();
-        string sql = @"SELECT * FROM Eventos
-                       WHERE DataEvento > GETDATE()
-                       AND CapacidadeTotal > 0
-                       ORDER BY DataEvento ASC";
-        return await conn.QueryAsync<Evento>(sql);
-    }
- 
-    public async Task<Evento?> ObterPorIdAsync(int id)
-    {
-        using var conn = _connectionFactory.CreateConnection();
-        string sql = "SELECT * FROM Eventos WHERE Id = @Id";
-        return await conn.QueryFirstOrDefaultAsync<Evento>(sql, new { Id = id });
-    }
- 
-    public async Task<bool> DiminuirCapacidadeAsync(int eventoId)
-    {
-        using var conn = _connectionFactory.CreateConnection();
-        string sql = @"UPDATE Eventos 
-                       SET CapacidadeTotal = CapacidadeTotal - 1
-                       WHERE Id = @EventoId AND CapacidadeTotal > 0";
- 
-        var rows = await conn.ExecuteAsync(sql, new { EventoId = eventoId });
+        using var connection = _connectionFactory.CreateConnection();
+        var sql = @"DELETE FROM Reservas 
+                    WHERE Id = @ReservaId AND UsuarioCpf = @UsuarioCpf";
+        var rows = await connection.ExecuteAsync(sql, new { ReservaId = reservaId, UsuarioCpf = usuarioCpf });
         return rows > 0;
     }
 }

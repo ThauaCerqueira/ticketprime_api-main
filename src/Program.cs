@@ -142,7 +142,7 @@ namespace TicketPrime.Api
                 return Results.Ok(resultado);
             });
  
-            // POST /api/reservas — Comprar ingresso (usuario logado)
+            // POST /api/reservas — Comprar ingresso
             app.MapPost("/api/reservas", async (ComprarIngressoDTO dto, ReservaService service, HttpContext context) =>
             {
                 try
@@ -164,6 +164,59 @@ namespace TicketPrime.Api
                 {
                     return Results.BadRequest(new { mensagem = ex.Message });
                 }
+            }).RequireAuthorization();
+ 
+            // GET /api/reservas/minhas — Lista ingressos do usuário logado
+            app.MapGet("/api/reservas/minhas", async (ReservaService service, HttpContext context) =>
+            {
+                var cpf = context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+ 
+                if (string.IsNullOrEmpty(cpf))
+                    return Results.Unauthorized();
+ 
+                var reservas = await service.ListarReservasUsuarioAsync(cpf);
+                return Results.Ok(reservas);
+            }).RequireAuthorization();
+ 
+            // DELETE /api/reservas/{id} — Cancelar ingresso
+            app.MapDelete("/api/reservas/{id}", async (int id, ReservaService service, HttpContext context) =>
+            {
+                try
+                {
+                    var cpf = context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+ 
+                    if (string.IsNullOrEmpty(cpf))
+                        return Results.Unauthorized();
+ 
+                    await service.CancelarIngressoAsync(id, cpf);
+                    return Results.Ok(new { mensagem = "Ingresso cancelado com sucesso! Vaga devolvida ao evento." });
+                }
+                catch (InvalidOperationException ex)
+                {
+                    return Results.BadRequest(new { mensagem = ex.Message });
+                }
+            }).RequireAuthorization();
+ 
+            // GET /api/perfil — Dados do usuário logado
+            app.MapGet("/api/perfil", async (UsuarioService service, HttpContext context) =>
+            {
+                var cpf = context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+ 
+                if (string.IsNullOrEmpty(cpf))
+                    return Results.Unauthorized();
+ 
+                var usuario = await service.BuscarPorCpf(cpf);
+ 
+                if (usuario == null)
+                    return Results.NotFound(new { mensagem = "Usuário não encontrado." });
+ 
+                return Results.Ok(new
+                {
+                    usuario.Cpf,
+                    usuario.Nome,
+                    usuario.Email,
+                    usuario.Perfil
+                });
             }).RequireAuthorization();
  
             app.Run();
