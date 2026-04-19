@@ -1,0 +1,204 @@
+@page "/perfil"
+@using System.Net.Http.Json
+@using TicketPrime.Web.Services
+@rendermode InteractiveServer
+@inject HttpClient Http
+@inject SessionService Session
+@inject NavigationManager Navigation
+
+<PageTitle>Meu Perfil - TicketPrime</PageTitle>
+
+@if (!Session.EstaLogado)
+{
+    Navigation.NavigateTo("/login", forceLoad: true);
+    return;
+}
+
+<div class="container mt-4">
+
+    <!-- Dados do usuário -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">👤 Meus Dados</h5>
+        </div>
+        <div class="card-body">
+            @if (perfil == null)
+            {
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status"></div>
+                </div>
+            }
+            else
+            {
+                <div class="row">
+                    <div class="col-md-4">
+                        <strong>Nome:</strong>
+                        <p>@perfil.Nome</p>
+                    </div>
+                    <div class="col-md-4">
+                        <strong>CPF:</strong>
+                        <p>@perfil.Cpf</p>
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Email:</strong>
+                        <p>@perfil.Email</p>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Ingressos comprados -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-dark text-white">
+            <h5 class="mb-0">🎟️ Meus Ingressos</h5>
+        </div>
+        <div class="card-body">
+
+            @if (!string.IsNullOrEmpty(mensagem))
+            {
+                <div class="alert @(mensagem.Contains("sucesso") ? "alert-success" : "alert-danger")">
+                    @mensagem
+                </div>
+            }
+
+            @if (reservas == null)
+            {
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p>Carregando ingressos...</p>
+                </div>
+            }
+            else if (!reservas.Any())
+            {
+                <div class="alert alert-info">Você ainda não comprou nenhum ingresso.</div>
+            }
+            else
+            {
+                <table class="table table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Evento</th>
+                            <th>Data do Evento</th>
+                            <th>Preço</th>
+                            <th>Data da Compra</th>
+                            <th>Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var reserva in reservas)
+                        {
+                            <tr>
+                                <td>@reserva.Nome</td>
+                                <td>@reserva.DataEvento.ToString("dd/MM/yyyy HH:mm")</td>
+                                <td>@reserva.PrecoPadrao.ToString("C")</td>
+                                <td>@reserva.DataCompra.ToString("dd/MM/yyyy HH:mm")</td>
+                                <td>
+                                    <button class="btn btn-danger btn-sm"
+                                            @onclick="() => Cancelar(reserva.Id)"
+                                            disabled="@cancelando">
+                                        @if (cancelando && reservaSelecionada == reserva.Id)
+                                        {
+                                            <span class="spinner-border spinner-border-sm"></span>
+                                        }
+                                        else
+                                        {
+                                            <span>Cancelar</span>
+                                        }
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private PerfilResponse? perfil;
+    private List<ReservaDetalhadaResponse>? reservas;
+    private string mensagem = "";
+    private bool cancelando = false;
+    private int reservaSelecionada = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CarregarPerfil();
+        await CarregarReservas();
+    }
+
+    private async Task CarregarPerfil()
+    {
+        try
+        {
+            perfil = await Http.GetFromJsonAsync<PerfilResponse>("api/perfil");
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Erro ao carregar perfil: {ex.Message}");
+        }
+    }
+
+    private async Task CarregarReservas()
+    {
+        try
+        {
+            reservas = await Http.GetFromJsonAsync<List<ReservaDetalhadaResponse>>("api/reservas/minhas");
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Erro ao carregar reservas: {ex.Message}");
+        }
+    }
+
+    private async Task Cancelar(int reservaId)
+    {
+        cancelando = true;
+        reservaSelecionada = reservaId;
+        mensagem = "";
+
+        try
+        {
+            var response = await Http.DeleteAsync($"api/reservas/{reservaId}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                mensagem = "✅ Ingresso cancelado com sucesso! Vaga devolvida ao evento.";
+                await CarregarReservas();
+            }
+            else
+            {
+                var erro = await response.Content.ReadAsStringAsync();
+                mensagem = $"❌ Erro: {erro}";
+            }
+        }
+        catch (Exception ex)
+        {
+            mensagem = $"❌ Erro de conexão: {ex.Message}";
+        }
+        finally
+        {
+            cancelando = false;
+            reservaSelecionada = 0;
+        }
+    }
+
+    public class PerfilResponse
+    {
+        public string Cpf { get; set; } = "";
+        public string Nome { get; set; } = "";
+        public string Email { get; set; } = "";
+        public string Perfil { get; set; } = "";
+    }
+
+    public class ReservaDetalhadaResponse
+    {
+        public int Id { get; set; }
+        public string Nome { get; set; } = "";
+        public DateTime DataEvento { get; set; }
+        public decimal PrecoPadrao { get; set; }
+        public DateTime DataCompra { get; set; }
+    }
+}
