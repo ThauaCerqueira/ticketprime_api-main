@@ -20,16 +20,15 @@ builder.Services.AddScoped<CupomService>();
 // SessionService como Scoped para manter estado por sessão do usuário
 builder.Services.AddSingleton<SessionService>();
  
-builder.Services.AddScoped(sp =>
+builder.Services.AddTransient(sp =>
 {
     var session = sp.GetRequiredService<SessionService>();
     var client = new HttpClient { BaseAddress = new Uri("http://localhost:5164") };
- 
-    // Adiciona o token JWT em todas as requisições se estiver logado
+
     if (!string.IsNullOrEmpty(session.Token))
         client.DefaultRequestHeaders.Authorization =
             new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", session.Token);
- 
+
     return client;
 });
  
