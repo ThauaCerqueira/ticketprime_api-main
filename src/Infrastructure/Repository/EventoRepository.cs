@@ -1,6 +1,7 @@
 using Dapper;
 using src.Models;
 using src.Infrastructure.IRepository;
+using src.DTOs;
 
 namespace src.Infrastructure.Repository;
 

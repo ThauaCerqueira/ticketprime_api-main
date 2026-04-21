@@ -1,5 +1,5 @@
-namespace src.Models;
- 
+namespace src.DTOs;
+
 public class ReservaDetalhadaDTO
 {
     public int Id { get; set; }
