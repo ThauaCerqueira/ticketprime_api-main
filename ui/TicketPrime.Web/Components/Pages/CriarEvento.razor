@@ -1,58 +1,317 @@
 ﻿@page "/eventos/novo"
 @using src.DTOs
+@using TicketPrime.Web.Services
 @inject HttpClient Http
 @inject NavigationManager Navigation
+@inject SessionService Session
+@rendermode InteractiveServer
 
-<PageTitle>Cadastrar Evento - TicketPrime</PageTitle>
+<PageTitle>Criar Evento - TicketPrime</PageTitle>
 
-<div class="container">
-    <h3>Cadastrar Novo Evento</h3>
+@if (!Session.EhAdmin)
+{
+    Navigation.NavigateTo("/", forceLoad: true);
+    return;
+}
 
-    <EditForm Model="@eventoDto" OnValidSubmit="HandleSubmit" FormName="FormCriarEvento">
-        <DataAnnotationsValidator />
+<style>
+    .ce-wrapper {
+        min-height: 100vh;
+        background: #F8FAFC;
+        padding: 2rem;
+    }
 
-        <div class="form-group">
-            <label>Nome do Evento:</label>
-            <InputText @bind-Value="eventoDto.Nome" class="form-control" />
+    .ce-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .ce-back-btn {
+        width: 38px; height: 38px;
+        background: white;
+        border: 1.5px solid #E5E7EB;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        text-decoration: none;
+        color: #374151;
+        transition: all 0.2s;
+        flex-shrink: 0;
+    }
+
+    .ce-back-btn:hover { background: #F0F0FF; border-color: #5B5BD6; color: #5B5BD6; }
+    .ce-back-btn svg { width: 16px; height: 16px; }
+
+    .ce-header-text h2 {
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: #1a1a2e;
+        margin: 0 0 0.2rem 0;
+    }
+
+    .ce-header-text p {
+        font-size: 0.875rem;
+        color: #6B7280;
+        margin: 0;
+    }
+
+    .ce-card {
+        background: white;
+        border-radius: 18px;
+        border: 1.5px solid #F1F5F9;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+        max-width: 640px;
+        overflow: hidden;
+    }
+
+    .ce-card-header {
+        padding: 1.4rem 1.8rem;
+        border-bottom: 1.5px solid #F1F5F9;
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+    }
+
+    .ce-card-header-icon {
+        width: 38px; height: 38px;
+        background: #F0F0FF;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .ce-card-header-icon svg { width: 18px; height: 18px; stroke: #5B5BD6; }
+
+    .ce-card-header-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #1a1a2e;
+    }
+
+    .ce-card-body {
+        padding: 1.8rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1.2rem;
+    }
+
+    .ce-field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+    }
+
+    .ce-label {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #374151;
+    }
+
+    .ce-input {
+        padding: 0.7rem 1rem;
+        border: 1.5px solid #E5E7EB;
+        border-radius: 10px;
+        font-size: 0.95rem;
+        color: #1a1a2e;
+        background: white;
+        transition: border-color 0.2s, box-shadow 0.2s;
+        outline: none;
+        width: 100%;
+    }
+
+    .ce-input:focus {
+        border-color: #5B5BD6;
+        box-shadow: 0 0 0 3px rgba(91,91,214,0.1);
+    }
+
+    .ce-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+
+    .ce-alert {
+        padding: 0.9rem 1.2rem;
+        border-radius: 12px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .ce-alert-success { background: #D1FAE5; color: #065F46; }
+    .ce-alert-error   { background: #FEE2E2; color: #991B1B; }
+
+    .ce-footer {
+        padding: 1.2rem 1.8rem;
+        border-top: 1.5px solid #F1F5F9;
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.8rem;
+    }
+
+    .ce-btn-cancel {
+        padding: 0.65rem 1.4rem;
+        background: transparent;
+        color: #6B7280;
+        border: 1.5px solid #E5E7EB;
+        border-radius: 10px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        transition: all 0.2s;
+    }
+
+    .ce-btn-cancel:hover { background: #F3F4F6; color: #374151; }
+
+    .ce-btn-save {
+        padding: 0.65rem 1.8rem;
+        background: #5B5BD6;
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: background 0.2s, transform 0.15s;
+    }
+
+    .ce-btn-save:hover { background: #4949c4; transform: translateY(-1px); }
+    .ce-btn-save:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+    .ce-spinner {
+        width: 15px; height: 15px;
+        border: 2px solid rgba(255,255,255,0.4);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: ce-spin 0.8s linear infinite;
+    }
+
+    @@keyframes ce-spin { to { transform: rotate(360deg); } }
+
+    @@media (max-width: 600px) {
+        .ce-row { grid-template-columns: 1fr; }
+        .ce-wrapper { padding: 1rem; }
+    }
+</style>
+
+<div class="ce-wrapper">
+    <div class="ce-header">
+        <a href="/eventos" class="ce-back-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="15 18 9 12 15 6"/>
+            </svg>
+        </a>
+        <div class="ce-header-text">
+            <h2>Criar novo evento</h2>
+            <p>Preencha os dados do evento a ser publicado</p>
+        </div>
+    </div>
+
+    <div class="ce-card">
+        <div class="ce-card-header">
+            <div class="ce-card-header-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                    <rect x="3" y="4" width="18" height="18" rx="2"/>
+                    <line x1="16" y1="2" x2="16" y2="6"/>
+                    <line x1="8" y1="2" x2="8" y2="6"/>
+                    <line x1="3" y1="10" x2="21" y2="10"/>
+                </svg>
+            </div>
+            <span class="ce-card-header-title">Dados do evento</span>
         </div>
 
-        <div class="form-group">
-            <label>Capacidade Total:</label>
-            <InputNumber @bind-Value="eventoDto.CapacidadeTotal" class="form-control" />
-            <ValidationMessage For="@(() => eventoDto.CapacidadeTotal)" class="text-danger" />
-        </div>
+        <EditForm Model="@eventoDto" OnValidSubmit="HandleSubmit" FormName="FormCriarEvento">
+            <DataAnnotationsValidator />
 
-        <div class="form-group">
-            <label>Data do Evento:</label>
-            <InputDate @bind-Value="dataSelecionada" class="form-control" />
-        </div>
+            <div class="ce-card-body">
 
-        <div class="form-group">
-            <label>Preço Padrão (R$):</label>
-            <InputNumber @bind-Value="eventoDto.PrecoPadrao" class="form-control" />
-        </div>
+                @if (!string.IsNullOrEmpty(mensagemSucesso))
+                {
+                    <div class="ce-alert ce-alert-success">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                        @mensagemSucesso
+                    </div>
+                }
 
-        <button type="submit" class="btn btn-primary">Salvar Evento</button>
+                @if (!string.IsNullOrEmpty(mensagemErro))
+                {
+                    <div class="ce-alert ce-alert-error">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                        </svg>
+                        @mensagemErro
+                    </div>
+                }
 
-        @if (!string.IsNullOrEmpty(mensagemSucesso))
-        {
-            <div class="alert alert-success mt-3">@mensagemSucesso</div>
-        }
+                <div class="ce-field">
+                    <label class="ce-label">Nome do evento</label>
+                    <InputText @bind-Value="eventoDto.Nome" class="ce-input" placeholder="Ex: Festival de Música 2025" />
+                </div>
 
-        @if (!string.IsNullOrEmpty(mensagemErro))
-        {
-            <div class="alert alert-danger mt-3">@mensagemErro</div>
-        }
-    </EditForm>
+                <div class="ce-row">
+                    <div class="ce-field">
+                        <label class="ce-label">Data do evento</label>
+                        <InputDate @bind-Value="dataSelecionada" class="ce-input" />
+                    </div>
+                    <div class="ce-field">
+                        <label class="ce-label">Capacidade total</label>
+                        <InputNumber @bind-Value="eventoDto.CapacidadeTotal" class="ce-input" placeholder="Ex: 200" />
+                    </div>
+                </div>
+
+                <div class="ce-field">
+                    <label class="ce-label">Preço do ingresso (R$)</label>
+                    <InputNumber @bind-Value="eventoDto.PrecoPadrao" class="ce-input" placeholder="Ex: 50,00" />
+                </div>
+
+            </div>
+
+            <div class="ce-footer">
+                <a href="/eventos" class="ce-btn-cancel">Cancelar</a>
+                <button type="submit" class="ce-btn-save" disabled="@salvando">
+                    @if (salvando)
+                    {
+                        <div class="ce-spinner"></div>
+                        <span>Salvando...</span>
+                    }
+                    else
+                    {
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                        <span>Criar evento</span>
+                    }
+                </button>
+            </div>
+
+        </EditForm>
+    </div>
 </div>
 
 @code {
     [SupplyParameterFromForm]
-    private CriarEventoDTO eventoDto { get; set; } = default!; 
-    
+    private CriarEventoDTO eventoDto { get; set; } = default!;
+
     private DateTime dataSelecionada = DateTime.Today.AddDays(1);
     private string? mensagemErro;
     private string mensagemSucesso = "";
+    private bool salvando = false;
 
     protected override void OnInitialized()
     {
@@ -61,27 +320,47 @@
 
     private async Task HandleSubmit()
     {
-        try 
-        {
-            mensagemErro = null;
-            
-            var dtoParaEnviar = eventoDto with { DataEvento = dataSelecionada };
+        salvando = true;
+        mensagemErro = null;
+        mensagemSucesso = "";
 
+        try
+        {
+            var dtoParaEnviar = eventoDto with { DataEvento = dataSelecionada };
             var response = await Http.PostAsJsonAsync("api/eventos", dtoParaEnviar);
 
             if (response.IsSuccessStatusCode)
             {
-                mensagemSucesso = "Evento criado com sucesso!";
-                eventoDto = new(); 
+                mensagemSucesso = "✅ Evento criado com sucesso!";
+                eventoDto = new CriarEventoDTO();
+                dataSelecionada = DateTime.Today.AddDays(1);
             }
             else
             {
-                mensagemErro = await response.Content.ReadAsStringAsync();
+                try
+                {
+                    var erro = await response.Content.ReadFromJsonAsync<ErroResponse>();
+                    mensagemErro = erro?.Mensagem ?? "Erro ao criar evento.";
+                }
+                catch
+                {
+                    mensagemErro = await response.Content.ReadAsStringAsync();
+                }
             }
         }
         catch (Exception ex)
         {
             mensagemErro = "Erro de conexão: " + ex.Message;
         }
+        finally
+        {
+            salvando = false;
+        }
+    }
+
+    private class ErroResponse
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("mensagem")]
+        public string? Mensagem { get; set; }
     }
 }

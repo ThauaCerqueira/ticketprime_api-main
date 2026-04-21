@@ -1,61 +1,323 @@
 @page "/cupons/cadastrar"
 @using src.DTOs
 @using src.Service
+@using TicketPrime.Web.Services
 @rendermode InteractiveServer
-@inject CupomService CupomService
+@inject HttpClient Http
+@inject SessionService Session
 @inject NavigationManager Navigation
 
-<PageTitle>Novo Cupom</PageTitle>
+<PageTitle>Criar Cupom - TicketPrime</PageTitle>
 
-<div class="container mt-4">
-    <div class="card shadow-sm">
-        <div class="card-header bg-primary text-white">
-            <h3 class="mb-0">Cadastrar Novo Cupom</h3>
+@if (!Session.EhAdmin)
+{
+    Navigation.NavigateTo("/", forceLoad: true);
+    return;
+}
+
+<style>
+    .cc-wrapper {
+        min-height: 100vh;
+        background: #F8FAFC;
+        padding: 2rem;
+    }
+
+    .cc-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .cc-back-btn {
+        width: 38px; height: 38px;
+        background: white;
+        border: 1.5px solid #E5E7EB;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        text-decoration: none;
+        color: #374151;
+        transition: all 0.2s;
+        flex-shrink: 0;
+    }
+
+    .cc-back-btn:hover { background: #F0F0FF; border-color: #5B5BD6; color: #5B5BD6; }
+    .cc-back-btn svg { width: 16px; height: 16px; }
+
+    .cc-header-text h2 {
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: #1a1a2e;
+        margin: 0 0 0.2rem 0;
+    }
+
+    .cc-header-text p {
+        font-size: 0.875rem;
+        color: #6B7280;
+        margin: 0;
+    }
+
+    .cc-card {
+        background: white;
+        border-radius: 18px;
+        border: 1.5px solid #F1F5F9;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+        max-width: 540px;
+        overflow: hidden;
+    }
+
+    .cc-card-header {
+        padding: 1.4rem 1.8rem;
+        border-bottom: 1.5px solid #F1F5F9;
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+    }
+
+    .cc-card-header-icon {
+        width: 38px; height: 38px;
+        background: #F0F0FF;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .cc-card-header-icon svg { width: 18px; height: 18px; stroke: #5B5BD6; }
+
+    .cc-card-header-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #1a1a2e;
+    }
+
+    .cc-card-body {
+        padding: 1.8rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1.2rem;
+    }
+
+    .cc-field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+    }
+
+    .cc-label {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #374151;
+    }
+
+    .cc-hint {
+        font-size: 0.78rem;
+        color: #9CA3AF;
+        margin-top: 0.2rem;
+    }
+
+    .cc-input {
+        padding: 0.7rem 1rem;
+        border: 1.5px solid #E5E7EB;
+        border-radius: 10px;
+        font-size: 0.95rem;
+        color: #1a1a2e;
+        background: white;
+        transition: border-color 0.2s, box-shadow 0.2s;
+        outline: none;
+        width: 100%;
+        text-transform: uppercase;
+    }
+
+    .cc-input:focus {
+        border-color: #5B5BD6;
+        box-shadow: 0 0 0 3px rgba(91,91,214,0.1);
+    }
+
+    .cc-input-normal {
+        text-transform: none;
+    }
+
+    .cc-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+
+    .cc-divider {
+        height: 1px;
+        background: #F1F5F9;
+        margin: 0.2rem 0;
+    }
+
+    .cc-alert {
+        padding: 0.9rem 1.2rem;
+        border-radius: 12px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .cc-alert-success { background: #D1FAE5; color: #065F46; }
+    .cc-alert-error   { background: #FEE2E2; color: #991B1B; }
+
+    .cc-footer {
+        padding: 1.2rem 1.8rem;
+        border-top: 1.5px solid #F1F5F9;
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.8rem;
+    }
+
+    .cc-btn-cancel {
+        padding: 0.65rem 1.4rem;
+        background: transparent;
+        color: #6B7280;
+        border: 1.5px solid #E5E7EB;
+        border-radius: 10px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        transition: all 0.2s;
+    }
+
+    .cc-btn-cancel:hover { background: #F3F4F6; color: #374151; }
+
+    .cc-btn-save {
+        padding: 0.65rem 1.8rem;
+        background: #5B5BD6;
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: background 0.2s, transform 0.15s;
+    }
+
+    .cc-btn-save:hover { background: #4949c4; transform: translateY(-1px); }
+    .cc-btn-save:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+    .cc-spinner {
+        width: 15px; height: 15px;
+        border: 2px solid rgba(255,255,255,0.4);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: cc-spin 0.8s linear infinite;
+    }
+
+    @@keyframes cc-spin { to { transform: rotate(360deg); } }
+
+    @@media (max-width: 600px) {
+        .cc-row { grid-template-columns: 1fr; }
+        .cc-wrapper { padding: 1rem; }
+    }
+</style>
+
+<div class="cc-wrapper">
+    <div class="cc-header">
+        <a href="/cupons" class="cc-back-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="15 18 9 12 15 6"/>
+            </svg>
+        </a>
+        <div class="cc-header-text">
+            <h2>Criar novo cupom</h2>
+            <p>Configure o código e as regras de desconto</p>
         </div>
-        <div class="card-body">
-            @if (!string.IsNullOrEmpty(mensagemErro))
-            {
-                <div class="alert alert-danger">@mensagemErro</div>
-            }
+    </div>
 
-            <EditForm Model="@novoCupom" OnValidSubmit="HandleSubmit" FormName="formCadastroCupom">
-                <DataAnnotationsValidator />
-                
-                <div class="mb-3">
-                    <label class="form-label">Código do Cupom</label>
-                    <InputText @bind-Value="novoCupom.Codigo" class="form-control" placeholder="Ex: TICKET10" />
-                    <ValidationMessage For="@(() => novoCupom.Codigo)" class="text-danger" />
-                </div>
-
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Porcentagem de Desconto (%)</label>
-                        <InputNumber @bind-Value="novoCupom.PorcentagemDesconto" class="form-control" />
-                        <ValidationMessage For="@(() => novoCupom.PorcentagemDesconto)" class="text-danger" />
-                    </div>
-
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Valor Mínimo da Regra (R$)</label>
-                        <InputNumber @bind-Value="novoCupom.ValorMinimoRegra" class="form-control" />
-                        <ValidationMessage For="@(() => novoCupom.ValorMinimoRegra)" class="text-danger" />
-                    </div>
-                </div>
-
-                <div class="d-flex justify-content-between align-items-center mt-4">
-                    <a href="/cupons" class="btn btn-outline-secondary">Voltar</a>
-                    <button type="submit" class="btn btn-success px-5" disabled="@isSubmitting">
-                        @if (isSubmitting)
-                        {
-                            <span class="spinner-border spinner-border-sm"></span> <span>Salvando...</span>
-                        }
-                        else
-                        {
-                            <span>Salvar Cupom</span>
-                        }
-                    </button>
-                </div>
-            </EditForm>
+    <div class="cc-card">
+        <div class="cc-card-header">
+            <div class="cc-card-header-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                    <path d="M20 12V22H4V12"/>
+                    <path d="M22 7H2v5h20V7z"/>
+                    <path d="M12 22V7"/>
+                </svg>
+            </div>
+            <span class="cc-card-header-title">Dados do cupom</span>
         </div>
+
+        <EditForm Model="@novoCupom" OnValidSubmit="HandleSubmit" FormName="formCadastroCupom">
+            <DataAnnotationsValidator />
+
+            <div class="cc-card-body">
+
+                @if (!string.IsNullOrEmpty(mensagemSucesso))
+                {
+                    <div class="cc-alert cc-alert-success">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                        @mensagemSucesso
+                    </div>
+                }
+
+                @if (!string.IsNullOrEmpty(mensagemErro))
+                {
+                    <div class="cc-alert cc-alert-error">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                        </svg>
+                        @mensagemErro
+                    </div>
+                }
+
+                <div class="cc-field">
+                    <label class="cc-label">Código do cupom</label>
+                    <InputText @bind-Value="novoCupom.Codigo" class="cc-input" placeholder="Ex: TICKET10" />
+                    <span class="cc-hint">O código será exibido em maiúsculas para os usuários</span>
+                </div>
+
+                <div class="cc-divider"></div>
+
+                <div class="cc-row">
+                    <div class="cc-field">
+                        <label class="cc-label">Desconto (%)</label>
+                        <InputNumber @bind-Value="novoCupom.PorcentagemDesconto" class="cc-input cc-input-normal" placeholder="Ex: 10" />
+                        <span class="cc-hint">Entre 1 e 100%</span>
+                    </div>
+                    <div class="cc-field">
+                        <label class="cc-label">Valor mínimo (R$)</label>
+                        <InputNumber @bind-Value="novoCupom.ValorMinimoRegra" class="cc-input cc-input-normal" placeholder="Ex: 50,00" />
+                        <span class="cc-hint">Preço mínimo para aplicar</span>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="cc-footer">
+                <a href="/cupons" class="cc-btn-cancel">Cancelar</a>
+                <button type="submit" class="cc-btn-save" disabled="@salvando">
+                    @if (salvando)
+                    {
+                        <div class="cc-spinner"></div>
+                        <span>Salvando...</span>
+                    }
+                    else
+                    {
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                        <span>Criar cupom</span>
+                    }
+                </button>
+            </div>
+
+        </EditForm>
     </div>
 </div>
 
@@ -63,39 +325,56 @@
     [SupplyParameterFromForm]
     public CriarCupomDTO novoCupom { get; set; } = default!;
 
+    private string? mensagemErro;
+    private string mensagemSucesso = "";
+    private bool salvando = false;
+
     protected override void OnInitialized()
     {
         novoCupom ??= new() { Codigo = "" };
     }
-    
-    private string? mensagemErro;
-    private bool isSubmitting = false;
 
     private async Task HandleSubmit()
     {
-        isSubmitting = true;
+        salvando = true;
         mensagemErro = null;
+        mensagemSucesso = "";
 
         try
         {
-            var sucesso = await CupomService.CriarAsync(novoCupom);
+            var response = await Http.PostAsJsonAsync("api/cupons", novoCupom);
 
-            if (sucesso)
+            if (response.IsSuccessStatusCode)
             {
-                Navigation.NavigateTo("/cupons");
+                mensagemSucesso = "✅ Cupom criado com sucesso!";
+                novoCupom = new() { Codigo = "" };
             }
             else
             {
-                mensagemErro = "Erro desconhecido ao salvar o cupom.";
+                try
+                {
+                    var erro = await response.Content.ReadFromJsonAsync<ErroResponse>();
+                    mensagemErro = erro?.Mensagem ?? "Erro ao criar cupom.";
+                }
+                catch
+                {
+                    mensagemErro = await response.Content.ReadAsStringAsync();
+                }
             }
         }
         catch (Exception ex)
         {
-            mensagemErro = ex.Message;
+            mensagemErro = "Erro de conexão: " + ex.Message;
         }
         finally
         {
-            isSubmitting = false;
+            salvando = false;
         }
+    }
+
+    private class ErroResponse
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("mensagem")]
+        public string? Mensagem { get; set; }
     }
 }

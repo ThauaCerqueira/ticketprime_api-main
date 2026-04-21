@@ -351,9 +351,33 @@
                 mensagem = "✅ Ingresso comprado com sucesso!";
                 await CarregarEventos();
             }
-            else { mensagem = "❌ Erro ao comprar ingresso. Tente novamente."; }
+            else
+            {
+                try
+                {
+                    var erro = await response.Content.ReadFromJsonAsync<ErroResponse>();
+                    var textoErro = erro?.Mensagem ?? "";
+
+                    if (textoErro.Contains("já aconteceu") || textoErro.Contains("já passou"))
+                        mensagem = "❌ Evento já passou da data.";
+                    else if (textoErro.Contains("vagas"))
+                        mensagem = "❌ Não há mais vagas disponíveis para este evento.";
+                    else
+                        mensagem = $"❌ {textoErro}";
+                }
+                catch
+                {
+                    mensagem = "❌ Erro ao comprar ingresso. Tente novamente.";
+                }
+            }
         }
         catch { mensagem = "❌ Erro de conexão."; }
         finally { comprando = false; eventoSelecionado = 0; }
+    }
+
+    private class ErroResponse
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("mensagem")]
+        public string? Mensagem { get; set; }
     }
 }

@@ -427,11 +427,6 @@
                 @Session.Nome
             </button>
         }
-        else
-        {
-            <button class="hp-nav-link" @onclick='() => Navigation.NavigateTo("/login")'>Entrar</button>
-            <button class="hp-nav-btn" @onclick='() => Navigation.NavigateTo("/cadastro-user")'>Criar conta</button>
-        }
     </div>
 </nav>
 
@@ -464,7 +459,7 @@
                 Ver Eventos
             </button>
             <button class="hp-hero-btn-sec" @onclick='() => Navigation.NavigateTo("/perfil")'>
-                Meus Ingressos
+                @(Session.EhAdmin ? "Meus Eventos" : "Meus Ingressos")
             </button>
         }
         else

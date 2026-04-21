@@ -1,4 +1,4 @@
-﻿﻿@using TicketPrime.Web.Services
+﻿﻿﻿@using TicketPrime.Web.Services
 @inject SessionService Session
 @inject NavigationManager Navigation
 @implements IDisposable
@@ -225,13 +225,13 @@
                 <span>@Session.Nome</span>
                 <span class="navbar-user-badge">@Session.Perfil</span>
             </div>
-        }
 
-        <button class="navbar-dots-btn" @onclick="ToggleMenu">
-            <span></span>
-            <span></span>
-            <span></span>
-        </button>
+            <button class="navbar-dots-btn" @onclick="ToggleMenu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        }
 
         @if (menuAberto)
         {
