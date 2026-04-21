@@ -17,7 +17,6 @@ builder.Services.AddSingleton(new DbConnectionFactory(connectionString));
 builder.Services.AddScoped<ICupomRepository, CupomRepository>();
 builder.Services.AddScoped<CupomService>();
  
-// SessionService como Scoped para manter estado por sessão do usuário
 builder.Services.AddSingleton<SessionService>();
  
 builder.Services.AddTransient(sp =>
