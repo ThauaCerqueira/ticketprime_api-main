@@ -29,6 +29,9 @@ public class SessionService
 {
     private readonly IJSRuntime _js;
     private readonly IHttpClientFactory _httpClientFactory;
+    private static string? _sharedToken;
+    private readonly SemaphoreSlim _carregarLock = new(1, 1);
+    private bool _carregamentoInicialConcluido;
 
     // ══════════════════════════════════════════════════════════════
     // ANTES: tp-refresh-token era armazenado aqui.
@@ -40,7 +43,11 @@ public class SessionService
     public string? Cpf { get; private set; }
     public string? Nome { get; private set; }
     public string? Perfil { get; private set; }
-    public string? Token { get; private set; }
+    public string? Token
+    {
+        get => _sharedToken;
+        private set => _sharedToken = value;
+    }
     public bool EstaLogado => !string.IsNullOrEmpty(Token);
     public bool EhAdmin => Perfil == "ADMIN";
 
@@ -66,10 +73,29 @@ public class SessionService
     /// O cookie ticketprime_refresh é enviado automaticamente pelo navegador
     /// na requisição POST /api/auth/refresh — sem necessidade de localStorage.
     /// </summary>
-    public async Task CarregarAsync()
+    public async Task CarregarAsync(bool forcarRefresh = false)
     {
+        if (_carregamentoInicialConcluido && !forcarRefresh)
+            return;
+
+        await _carregarLock.WaitAsync();
         try
         {
+            if (_carregamentoInicialConcluido && !forcarRefresh)
+                return;
+
+            var infoResult = await GetLocalStorageAsync(KeyUserInfo);
+
+            // Evita POST /api/auth/refresh em visitante anônimo.
+            // Sem indício de sessão persistida, não há cookie útil para renovar.
+            if (!forcarRefresh && string.IsNullOrWhiteSpace(infoResult) && string.IsNullOrWhiteSpace(Token))
+            {
+                Cpf = null;
+                Nome = null;
+                Perfil = null;
+                return;
+            }
+
             // ══════════════════════════════════════════════════════════════
             // SEGURANÇA: NÃO lê refresh token do localStorage.
             // O cookie httpOnly ticketprime_refresh é enviado
@@ -86,7 +112,6 @@ public class SessionService
                     Token  = result.Token;
 
                     // Tenta recuperar info do usuário do localStorage (apenas nome/perfil)
-                    var infoResult = await GetLocalStorageAsync(KeyUserInfo);
                     if (!string.IsNullOrEmpty(infoResult))
                     {
                         var userInfo = JsonSerializer.Deserialize<UserInfoData>(infoResult);
@@ -117,6 +142,8 @@ public class SessionService
         }
         finally
         {
+            _carregamentoInicialConcluido = true;
+            _carregarLock.Release();
             NotificarMudanca();
         }
     }
@@ -146,6 +173,7 @@ public class SessionService
             // localStorage pode falhar na primeira renderização — sessão segue funcional
         }
 
+        _carregamentoInicialConcluido = true;
         NotificarMudanca();
     }
 
@@ -179,6 +207,7 @@ public class SessionService
         Token  = null;
 
         await LimparStorageAsync();
+        _carregamentoInicialConcluido = true;
         NotificarMudanca();
     }
 

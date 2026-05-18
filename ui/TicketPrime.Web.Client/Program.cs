@@ -14,8 +14,9 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 // MudBlazor
 builder.Services.AddMudServices();
 
-// Session (Scoped)
-builder.Services.AddScoped<SessionService>();
+// Session (Singleton): precisa ser compartilhada entre componentes e
+// handlers do HttpClientFactory para propagar o mesmo JWT.
+builder.Services.AddSingleton<SessionService>();
 
 // CryptoService
 builder.Services.AddScoped<CryptoService>();
@@ -28,14 +29,12 @@ var apiBaseUrl = builder.Configuration["ApiSettings:BaseUrl"] ?? "http://localho
 builder.Services.AddScoped<AuthHttpClientHandler>();
 
 // "TicketPrimeApi" — HttpClient com Polly + AuthHttpMessageHandler
-// NOTA: AddHttpMessageHandler NÃO pode ser encadeado após AddStandardResilienceHandler
-// porque ele retorna IHttpStandardResiliencePipelineBuilder, não IHttpClientBuilder.
-// A abordagem correta para WASM é usar IHttpClientFactory + criar o HttpClient manualmente.
 builder.Services.AddHttpClient("TicketPrimeApi", client =>
 {
     client.BaseAddress = new Uri(apiBaseUrl);
     client.Timeout = TimeSpan.FromSeconds(30);
 })
+.AddHttpMessageHandler<AuthHttpClientHandler>()
 .AddStandardResilienceHandler(options =>
 {
     options.Retry.MaxRetryAttempts = 3;
@@ -50,27 +49,15 @@ builder.Services.AddHttpClient("TicketPrimeApi", client =>
             return ValueTask.FromResult(true);
         return ValueTask.FromResult(false);
     };
-    options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(30);
+    options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(60);
     options.CircuitBreaker.BreakDuration = TimeSpan.FromSeconds(15);
     options.CircuitBreaker.MinimumThroughput = 5;
     options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(25);
 });
 
-// Cria o HttpClient com AuthHttpClientHandler resolvido manualmente
-builder.Services.AddScoped(sp =>
-{
-    var sessionService = sp.GetRequiredService<SessionService>();
-    var authHandler = new AuthHttpClientHandler(sessionService)
-    {
-        InnerHandler = sp.GetRequiredService<IHttpMessageHandlerFactory>()
-                          .CreateHandler("TicketPrimeApi")
-    };
-    return new HttpClient(authHandler, disposeHandler: false)
-    {
-        BaseAddress = new Uri(apiBaseUrl),
-        Timeout = TimeSpan.FromSeconds(30)
-    };
-});
+// Garante que @inject HttpClient use o cliente nomeado TicketPrimeApi.
+builder.Services.AddScoped<HttpClient>(sp =>
+    sp.GetRequiredService<IHttpClientFactory>().CreateClient("TicketPrimeApi"));
 
 // CupomService
 builder.Services.AddScoped(sp =>

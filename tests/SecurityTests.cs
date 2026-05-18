@@ -330,7 +330,7 @@ public class JwtTokenSecurityTests
     }
 
     [Fact]
-    public void LoginAsync_DeveRetornarNull_QuandoCpfInvalido()
+    public async Task LoginAsync_DeveRetornarNull_QuandoCpfInvalido()
     {
         // Arrange
         var repoMock = new Mock<IUsuarioRepository>();
@@ -339,9 +339,11 @@ public class JwtTokenSecurityTests
 
         var authService = new AuthService(repoMock.Object, CriarConfig("30"), CriarDbFactoryMock().Object);
 
-        // Act & Assert
-        var ex = Assert.ThrowsAsync<InvalidOperationException>(
-            () => authService.LoginAsync(new LoginDTO { Cpf = "00000000000", Senha = "qualquer" }));
+        // Act
+        var resultado = await authService.LoginAsync(new LoginDTO { Cpf = "00000000000", Senha = "qualquer" });
+
+        // Assert — usuário inexistente retorna null (não lança exceção)
+        Assert.Null(resultado);
     }
 
     [Fact]
@@ -385,7 +387,8 @@ public class JwtTokenSecurityTests
                     Cpf = "52998224725",
                     Nome = "Teste",
                     Senha = senhaHash,
-                    Perfil = "CLIENTE"
+                    Perfil = "CLIENTE",
+                    EmailVerificado = true
                 });
 
         // Usa construtor de 2 parâmetros (sem DbConnectionFactory) —
@@ -423,7 +426,8 @@ public class JwtTokenSecurityTests
                     Nome = "Admin",
                     Senha = senhaHash,
                     Perfil = "ADMIN",
-                    SenhaTemporaria = true
+                    SenhaTemporaria = true,
+                    EmailVerificado = true
                 });
 
         // Usa construtor de 2 parâmetros (sem DbConnectionFactory)

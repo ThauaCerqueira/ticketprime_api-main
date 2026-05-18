@@ -1,5 +1,6 @@
 @page "/fila-espera"
 @using System.Net.Http.Json
+@using TicketPrime.Web.Client.Services
 @using TicketPrime.Web.Shared.Models
 @inject HttpClient Http
 @inject NavigationManager Navigation
@@ -115,12 +116,9 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await Session.CarregarAsync();
-        if (!Session.EstaLogado)
-        {
-            Navigation.NavigateTo("/login", replace: true);
+        if (!await Session.EnsureAuthenticatedAsync(Navigation))
             return;
-        }
+
         await CarregarFilas();
         _ = IniciarPollingAsync();
     }

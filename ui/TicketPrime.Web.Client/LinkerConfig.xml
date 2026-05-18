@@ -1,0 +1,9 @@
+<linker>
+  <!-- Preserva o componente Routes do servidor (usado pelo WASM interativo) -->
+  <assembly fullname="TicketPrime.Web">
+    <type fullname="TicketPrime.Web.Components.Routes" preserve="all" />
+    <type fullname="TicketPrime.Web.Components.App" preserve="all" />
+  </assembly>
+  <!-- Preserva a assembly do Client para navegação por rota -->
+  <assembly fullname="TicketPrime.Web.Client" preserve="all" />
+</linker>

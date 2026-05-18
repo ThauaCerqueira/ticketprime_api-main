@@ -54,6 +54,11 @@ public class AuthService
             return null;
         }
 
+        // Requer verificação de email antes de permitir autenticação.
+        if (!usuario.EmailVerificado)
+            throw new InvalidOperationException(
+                "Seu email ainda não foi verificado. Verifique sua caixa de entrada e confirme o código antes de fazer login.");
+
         // Se "Lembrar" estiver marcado, usa token de 7 dias, senão 30 minutos
         var expireMinutes = dto.Lembrar ? 10080 : 30; // 10080 min = 7 dias
 

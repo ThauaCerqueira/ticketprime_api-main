@@ -75,8 +75,9 @@ public class Program
                 var origins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>()
                     ?? new[] { "http://localhost:5194" };
                 policy.WithOrigins(origins)
-                      .WithMethods("GET", "POST", "PUT", "DELETE", "PATCH")
-                      .WithHeaders("Content-Type", "Authorization", "Accept", "X-Request-Id");
+                      .AllowAnyMethod()
+                      .AllowAnyHeader()
+                      .AllowCredentials();
             });
         });
 
@@ -112,6 +113,16 @@ public class Program
                 {
                     OnMessageReceived = context =>
                     {
+                        // Prioriza explicitamente o token Bearer enviado no header.
+                        // O cookie httpOnly é apenas fallback para clientes que não
+                        // conseguem enviar Authorization.
+                        var authHeader = context.Request.Headers.Authorization.ToString();
+                        if (!string.IsNullOrWhiteSpace(authHeader) &&
+                            authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                        {
+                            return Task.CompletedTask;
+                        }
+
                         var token = context.Request.Cookies["ticketprime_token"];
                         if (!string.IsNullOrEmpty(token))
                         {
@@ -306,7 +317,8 @@ public class Program
         builder.Services.AddSingleton<MetricsService>();
         builder.Services.AddSingleton<JwtBlacklistService>();
         builder.Services.AddHostedService<RefreshTokenCleanupService>();
-        builder.Services.AddHostedService<BackgroundEmailService>();
+        builder.Services.AddSingleton<BackgroundEmailService>();
+        builder.Services.AddHostedService(sp => sp.GetRequiredService<BackgroundEmailService>());
 
         // ── Webhook Security ────────────────────────────────────────────────
         // Validador de assinatura HMAC-SHA256 para webhooks do MercadoPago.
@@ -485,10 +497,22 @@ public class Program
             app.UseHsts();
         }
 
-        // ── Security Headers (extraído para SecurityHeadersMiddleware.cs) ────
-        app.UseMiddleware<SecurityHeadersMiddleware>();
-
+        // ── CORS (deve vir antes de SecurityHeaders, RateLimiter e Routing) ──
         app.UseCors("AllowFrontend");
+
+        // ── Preflight CORS: retorna 204 para OPTIONS (CORS middleware não short-circuit) ──
+        app.Use(async (context, next) =>
+        {
+            if (HttpMethods.IsOptions(context.Request.Method))
+            {
+                context.Response.StatusCode = 204;
+                return;
+            }
+            await next();
+        });
+
+        // ── Security Headers ─────────────────────────────────────────────────
+        app.UseMiddleware<SecurityHeadersMiddleware>();
         app.UseRateLimiter();
         app.UseAuthentication();
         app.UseAuthorization();
@@ -515,12 +539,27 @@ public class Program
         //  ANTES: /metrics gerava texto manualmente via MetricsService.
         //  AGORA: /metrics usa OpenTelemetry + MetricsService combinados.
         // ═══════════════════════════════════════════════════════════════════
-        app.UseOpenTelemetryPrometheusScrapingEndpoint(context =>
-        {
-            // Só expõe métricas se autenticado como ADMIN
-            return context.User?.Identity?.IsAuthenticated == true
-                && context.User.IsInRole("ADMIN");
-        });
+        app.UseOpenTelemetryPrometheusScrapingEndpoint(
+            app.Services.GetRequiredService<MeterProvider>(),
+            predicate: null,
+            path: "/metrics",
+            configureBranchedPipeline: branch =>
+            {
+                branch.Use(async (context, next) =>
+                {
+                    // Só expõe métricas para ADMIN autenticado.
+                    if (context.User?.Identity?.IsAuthenticated != true ||
+                        !context.User.IsInRole("ADMIN"))
+                    {
+                        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                        await context.Response.WriteAsync("Forbidden");
+                        return;
+                    }
+
+                    await next();
+                });
+            },
+            optionsName: null);
 
         // ── Controllers ────────────────────────────────────────────────────
         app.MapControllers();

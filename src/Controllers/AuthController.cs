@@ -50,9 +50,17 @@ public class AuthController : ControllerBase
         var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
         var userAgent = HttpContext.Request.Headers.UserAgent.FirstOrDefault();
 
-        var resultado = await _authService.LoginAsync(dto, ipAddress, userAgent);
-        if (resultado == null)
-            return Results.Json(new { mensagem = "CPF ou senha inválidos." }, statusCode: 401);
+        LoginResponseDTO? resultado;
+        try
+        {
+            resultado = await _authService.LoginAsync(dto, ipAddress, userAgent);
+            if (resultado == null)
+                return Results.Json(new { mensagem = "CPF ou senha inválidos." }, statusCode: 401);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Results.BadRequest(new { mensagem = ex.Message });
+        }
 
         // Define o token JWT como cookie httpOnly (XSS-safe)
         // Se "Lembrar" estiver marcado, o cookie dura 7 dias (igual ao token)

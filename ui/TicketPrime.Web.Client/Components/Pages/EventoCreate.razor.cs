@@ -8,6 +8,7 @@ using System.Globalization;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using TicketPrime.Web.Client.Services;
 using TicketPrime.Web.Shared.Models;
 using TicketPrime.Web.Client.Validators;
 
@@ -147,9 +148,7 @@ public partial class EventoCreate : IAsyncDisposable
     // ─────────────────────────────────────────────────────────────────────────
     protected override async Task OnInitializedAsync()
     {
-        await Session.CarregarAsync();
-        if (!Session.EhAdmin)
-            Navigation.NavigateTo("/", replace: true);
+        await Session.EnsureAdminAsync(Navigation);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

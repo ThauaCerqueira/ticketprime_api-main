@@ -484,7 +484,12 @@ GO
 -- Adiciona colunas para verificação de email
 IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[Usuarios]') AND name = 'EmailVerificado')
 BEGIN
+    -- DEFAULT 0 para novas inserções (novos cadastros precisam verificar o email).
     ALTER TABLE Usuarios ADD [EmailVerificado] BIT NOT NULL DEFAULT 0;
+    -- Marca os usuários já existentes como verificados para evitar lock-out
+    -- de contas criadas antes desta funcionalidade ser introduzida.
+    -- Este UPDATE só executa na primeira vez (dentro do IF NOT EXISTS).
+    UPDATE Usuarios SET EmailVerificado = 1;
 END
 GO
 

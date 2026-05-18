@@ -1,5 +1,6 @@
 @page "/admin/checkin"
 @using System.Net.Http.Json
+@using TicketPrime.Web.Client.Services
 @using TicketPrime.Web.Shared.Models
 @using Microsoft.JSInterop
 @inject HttpClient Http
@@ -156,9 +157,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await Session.CarregarAsync();
-        if (!Session.EhAdmin)
-            Navigation.NavigateTo("/", replace: true);
+        await Session.EnsureAdminAsync(Navigation);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

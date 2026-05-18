@@ -28,7 +28,6 @@ public sealed class LocalFileStorageService : IStorageService
         var basePath = env.WebRootPath ?? Path.Combine(env.ContentRootPath, "wwwroot");
         _basePath = Path.GetFullPath(basePath);
         _pastaRaiz = Path.Combine(_basePath, "uploads");
-        Directory.CreateDirectory(_pastaRaiz);
         _logger.LogInformation("LocalFileStorageService initialized at {PastaRaiz}", _pastaRaiz);
     }
 
@@ -57,6 +56,7 @@ public sealed class LocalFileStorageService : IStorageService
             _ => ".bin"
         };
 
+        Directory.CreateDirectory(_pastaRaiz);
         var pasta = Path.Combine(_pastaRaiz, subpastaSegura);
         Directory.CreateDirectory(pasta);
 

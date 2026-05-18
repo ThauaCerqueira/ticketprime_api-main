@@ -89,7 +89,6 @@ public sealed class LocalMeiaEntradaStorageService : IMeiaEntradaStorageService
         // ══════════════════════════════════════════════════════════════
         _pastaRaiz = Path.GetFullPath(Path.Combine(
             env.ContentRootPath, "App_Data", "uploads", Subpasta));
-        Directory.CreateDirectory(_pastaRaiz);
         _logger.LogInformation(
             "LocalMeiaEntradaStorageService initialized at {PastaRaiz} (PROTEGIDO — fora de wwwroot)",
             _pastaRaiz);
@@ -97,6 +96,8 @@ public sealed class LocalMeiaEntradaStorageService : IMeiaEntradaStorageService
 
     public async Task<string> SalvarDocumentoAsync(Stream stream, string nomeOriginal, string contentType)
     {
+        Directory.CreateDirectory(_pastaRaiz);
+
         // ══════════════════════════════════════════════════════════════
         // VALIDAÇÃO 1: Tipo MIME
         // ══════════════════════════════════════════════════════════════

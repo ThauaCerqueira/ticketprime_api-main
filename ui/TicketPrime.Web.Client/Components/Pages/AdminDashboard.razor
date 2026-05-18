@@ -433,11 +433,9 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (!Session.EhAdmin)
-        {
-            Navigation.NavigateTo("/");
+        if (!await Session.EnsureAdminAsync(Navigation))
             return;
-        }
+
         await CarregarStats();
     }
 
